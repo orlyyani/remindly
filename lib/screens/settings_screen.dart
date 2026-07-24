@@ -289,8 +289,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Padding(
             padding: EdgeInsets.all(20),
             child: Text(
-              'All data stays on this device. No account, no internet needed. '
-              'Backups are plain files you control.',
+              'Your reminders live on this device and work fully offline — no '
+              'account needed. Backups are plain files you control. Google '
+              'Calendar sync is optional; turn it on only if you want it.',
               style: TextStyle(fontStyle: FontStyle.italic),
             ),
           ),
