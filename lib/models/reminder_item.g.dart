@@ -32,7 +32,7 @@ class ReminderItemAdapter extends TypeAdapter<ReminderItem> {
       notificationBaseId: fields[12] as int,
       completions: (fields[13] as List?)?.cast<CompletionRecord>(),
       snoozedUntil: fields[14] as DateTime?,
-      escalateWhenOverdue: fields[15] as bool,
+      escalateWhenOverdue: fields[15] == null ? true : fields[15] as bool,
     );
   }
 

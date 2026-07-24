@@ -94,8 +94,9 @@ class ReminderItem extends HiveObject {
   DateTime? snoozedUntil;
 
   /// When true, once the item is overdue it nudges again daily (for a bounded
-  /// number of days) until marked done.
-  @HiveField(15)
+  /// number of days) until marked done. defaultValue keeps upgrades safe when
+  /// reading items saved before this field existed.
+  @HiveField(15, defaultValue: true)
   bool escalateWhenOverdue;
 
   ReminderCategory get category => ReminderCategory.fromName(categoryName);
