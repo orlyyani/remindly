@@ -21,33 +21,56 @@ remember to open the app to stay on top of things, the app has failed.
 
 ### Guiding principles
 - **Simplicity over features.** A very straightforward, uncluttered UI. No hassle.
-- **No account, no server, no internet required.** All data lives on the device.
-  Notifications are scheduled locally. This is a strict requirement, not a preference.
+- **Offline-first, local source of truth.** All reminder data lives on the device
+  (Hive) and notifications are scheduled locally. The app never *requires* an
+  account, server, or internet to do its job.
+  - **Updated by the user:** optional, opt-in *online* features may layer on top
+    as long as the core stays fully functional offline and the app remains the
+    notifier. Shipped so far: **local file backup/restore** and **Google Calendar
+    sync** (the app calls the Calendar API directly — **no self-run backend / no
+    AWS / no Laravel**). See §10.
 - **Reliability of reminders is the #1 feature.** If notifications don't fire
-  dependably (including after a phone reboot), nothing else matters.
+  dependably (including after a phone reboot), nothing else matters. Calendar sync
+  is a *mirror*, never a replacement for local notifications.
 
 ---
 
 ## 1b. Repo status & commands
 
-> **Current status (2026-07-24):** toolchain installed and project scaffolded.
-> - Flutter **3.44.8** (stable), Dart **3.12.2** — via Homebrew at `/opt/homebrew/bin`.
-> - JDK **openjdk@17** at `/opt/homebrew/opt/openjdk@17/...`; Android SDK at
->   `~/Library/Android/sdk` (platform + build-tools **36**, platform-tools, cmdline-tools).
-> - `flutter doctor` is green for Android, Chrome, and connected devices. **Xcode is
->   not installed** — iOS builds are unavailable until the full Xcode is installed
->   from the App Store (Android-first, so this is intentionally deferred).
-> - Toolchain env vars (`JAVA_HOME`, `ANDROID_HOME`, `PATH`) are appended to `~/.zshrc`.
-> - **MVP (§6) is implemented**: add/edit/delete, Hive persistence, recurrence
->   (none / every N days·weeks·months·years), local notifications with reconcile-
->   on-launch + boot receiver, home list sorted by due with "in X days" labels and
->   mark-as-done. `flutter analyze` clean, tests pass, debug + release APK build.
-> - **Not yet verified on a real device** — notification firing and reboot
->   rescheduling still need a physical Android phone (emulators are unreliable here).
+> **Current status (2026-07-24):** shipped and running on a real device (Xiaomi 12,
+> Android 15). The app has been rebranded **"Remindly"** with a purple + orange
+> design (see §5/§10). Sections 2–9 below are the *original spec*; where they
+> disagree with what's built, **§10 is authoritative.**
 >
-> Code layout follows §7. The date/recurrence "brain" is in `lib/utils/date_math.dart`
-> (unit-tested in `test/utils/`). Notifications live in
-> `lib/services/notification_service.dart`; storage/sync in `lib/data/`.
+> - Flutter **3.44.8** (stable), Dart **3.12.2** — via Homebrew at `/opt/homebrew/bin`.
+> - JDK **openjdk@17**; Android SDK at `~/Library/Android/sdk` (build-tools **36**).
+>   Toolchain env vars are in `~/.zshrc`. **Xcode not installed** — iOS deferred.
+> - **Verified on device:** local notifications fire (incl. the scheduled path);
+>   Welcome, Upcoming, New Reminder, Detail, Settings all render. Old data migrates
+>   safely (Hive `defaultValue`). `flutter analyze` clean, tests pass, release APK builds.
+> - **Still unverified:** reboot-survival test; Google Calendar live sign-in (needs
+>   the OAuth client — see `docs/google_calendar_setup.md`).
+> - Note: sideloading to Xiaomi/MIUI requires approving an "Install via USB" prompt,
+>   and each fresh install may clear app data (normal for dev installs).
+
+Everyday commands:
+
+```bash
+flutter run                       # run on connected device / emulator
+flutter analyze                   # static analysis / lint
+dart format .                     # format
+flutter test                      # run all unit/widget tests
+flutter test test/utils/date_math_test.dart         # run a single test file
+flutter build apk --release       # sideloadable APK
+dart run build_runner build --delete-conflicting-outputs   # regen Hive adapters
+
+# Build with Google Calendar sync enabled (Web OAuth client id):
+flutter build apk --release --dart-define=GOOGLE_SERVER_CLIENT_ID=<web-client-id>.apps.googleusercontent.com
+```
+
+The date/recurrence math (`lib/utils/date_math.dart`) is the "brain" — unit-tested
+in `test/utils/`. Notification firing / reboot behaviour must be trusted only on a
+**real Android device**.
 
 Everyday commands:
 
@@ -244,8 +267,71 @@ flutter run
 
 - Favor clarity and small, readable files over cleverness. This is a first app for
   the user; keep the code approachable and commented where non-obvious.
-- Don't add a backend, analytics, ads, accounts, or network calls.
+- **No self-run backend, analytics, or ads.** Network calls are allowed *only* for
+  opt-in features the user has approved (currently Google Calendar sync, via the
+  Google API directly from the device). Keep every such feature optional and
+  best-effort — the app must work fully offline with it turned off. Do **not**
+  stand up AWS/Laravel/etc. for this app (the user weighed and rejected that).
 - Don't reintroduce mileage/odometer tracking.
 - When a decision isn't specified here, pick the simplest reasonable option and
   note it, rather than blocking.
 - Prioritize getting a working, installable app on the user's phone early, then iterate.
+
+---
+
+## 10. As-built architecture & decisions (authoritative — supersedes 2–9 on conflict)
+
+The app grew beyond the original MVP at the user's direction. Current reality:
+
+### Branding & design
+- Named **"Remindly"**. Material 3, **purple primary (#6C5CE7) + orange accent
+  (#F5A623)**, warm off-white surfaces, pastel category tints, soft shadows, and a
+  hand-painted alarm-clock mascot (`widgets/alarm_clock.dart`, no image assets).
+  Theme in `lib/theme/app_theme.dart`.
+- A **one-time, skippable Welcome screen** exists (Get Started / Restore). This
+  intentionally overrides the old "no onboarding" rule — it is *not* a wall.
+
+### Screens (`lib/screens/`)
+- `welcome_screen` → `home_shell` (bottom nav: **Upcoming · Calendar · center + · Done ·
+  Settings**). `upcoming_screen` (greeting + featured card for the soonest/overdue
+  item + soft "Next up" cards + empty-state with quick-add suggestion chips),
+  `detail_screen` (status, mark-done incl. keep-original-schedule, snooze, history,
+  nudge plan), `add_edit_screen` (Name/Group/Repeats/last-done/Nudge, live "next
+  due / first nudge"), `calendar_screen`, `done_screen`, `settings_screen`.
+
+### Data model — `ReminderItem` (Hive typeId 0) beyond the original fields
+- Enums stored as primitives: `categoryName` (String), `recurrenceTypeIndex` (int).
+- `notificationBaseId` (stable id range for this item's notifications).
+- `completions` (`List<CompletionRecord>`, typeId 1) — history with on-time/late.
+- `snoozedUntil` (DateTime?), `escalateWhenOverdue` (bool, **defaultValue: true** so
+  upgrades read old data safely), `googleEventId` (String?, calendar mirror id).
+- **Adding a new persisted field:** give non-nullable fields a `defaultValue` in the
+  `@HiveField` annotation, then re-run build_runner — otherwise old records crash.
+
+### Notifications (`services/notification_service.dart`)
+- `flutter_local_notifications` **v22** (all-named params: `zonedSchedule(id:,
+  scheduledDate:, notificationDetails:, …)`), `timezone` + **flutter_timezone v5**
+  (`getLocalTimezone().identifier`). Core-library desugaring is enabled in Gradle.
+- Per item: lead-time nudges + **escalating daily nudges once overdue** (bounded),
+  or a single nudge when **snoozed**. Copy is friendly/category-aware
+  (`utils/friendly_copy.dart`). App is the sole notifier.
+
+### Persistence & sync (`lib/data/`)
+- `reminder_repository` is the single mutation point; keeps notifications AND (best-
+  effort) the calendar mirror in sync on every change.
+- `backup_service` — **local file** export/restore of everything as JSON via
+  `share_plus` + **`file_selector`** (NOT file_picker — its old versions break the
+  Gradle build). This is the "Restore" on Welcome and in Settings.
+- `google_calendar_service` — optional mirror via **google_sign_in v7** +
+  **googleapis** + `extension_google_sign_in_as_googleapis_auth`. Events use RRULE
+  and carry **no reminders** (no double-nudge). Gated on `GOOGLE_SERVER_CLIENT_ID`
+  (dart-define); off ⇒ Settings shows "Not set up on this build yet". Setup steps:
+  `docs/google_calendar_setup.md`.
+
+### Settings extras
+- Optional local **display name** (greeting only, no account), test notification,
+  default time/lead, backup/restore, Google Calendar connect/disconnect/sync.
+
+### Known follow-ups
+- Reboot-survival test on the physical device; custom launcher icon (still default
+  Flutter icon); editable/custom categories (the "+" group chip) intentionally omitted.
