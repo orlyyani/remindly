@@ -3,6 +3,7 @@
 // ignore_for_file: prefer_initializing_formals
 import 'package:hive/hive.dart';
 
+import '../models/completion_record.dart';
 import '../models/recurrence_type.dart';
 import '../models/reminder_category.dart';
 import '../models/reminder_item.dart';
@@ -51,6 +52,8 @@ class ReminderRepository {
     int? notificationHour,
     int? notificationMinute,
     bool isActive = true,
+    bool escalateWhenOverdue = true,
+    DateTime? lastCompletedDate,
   }) {
     final id = DateTime.now().microsecondsSinceEpoch.toString();
     return ReminderItem(
@@ -65,6 +68,8 @@ class ReminderRepository {
       notificationHour: notificationHour,
       notificationMinute: notificationMinute,
       isActive: isActive,
+      escalateWhenOverdue: escalateWhenOverdue,
+      lastCompletedDate: lastCompletedDate,
       notificationBaseId: _settings.allocateNotificationBaseId(),
     );
   }
@@ -85,14 +90,31 @@ class ReminderRepository {
     await _reschedule(item);
   }
 
-  /// Marks an item done: records completion and rolls it to its next
-  /// occurrence. One-time items are simply deactivated (no next date).
-  Future<void> markDone(ReminderItem item, {DateTime? now}) async {
-    final today = now ?? DateTime.now();
-    item.lastCompletedDate = dateOnly(today);
+  /// Marks an item done: records a completion in its history and rolls it to
+  /// its next occurrence. One-time items are simply deactivated (no next date).
+  ///
+  /// [restartFromToday] (the default) advances from today; when false, the
+  /// cycle is advanced from the original due date (keeps the fixed schedule,
+  /// e.g. a birthday or a registration month).
+  Future<void> markDone(
+    ReminderItem item, {
+    DateTime? now,
+    bool restartFromToday = true,
+  }) async {
+    final today = dateOnly(now ?? DateTime.now());
+    final completedDue = item.nextDueDate;
+
+    item.completions.add(CompletionRecord(
+      completedDate: today,
+      dueDate: dateOnly(completedDue),
+    ));
+    item.lastCompletedDate = today;
+    item.snoozedUntil = null;
+
     if (item.recurrenceType.repeats) {
+      final anchor = restartFromToday ? today : completedDue;
       item.nextDueDate = nextOccurrenceAfter(
-        item.nextDueDate,
+        anchor,
         item.recurrenceType,
         item.recurrenceInterval,
         reference: today,
@@ -100,6 +122,22 @@ class ReminderRepository {
     } else {
       item.isActive = false;
     }
+    await item.save();
+    await _reschedule(item);
+  }
+
+  /// Snoozes an item: suppress normal nudges and re-nudge [days] from now.
+  Future<void> snooze(ReminderItem item, int days) async {
+    final now = DateTime.now();
+    item.snoozedUntil = DateTime(now.year, now.month, now.day + days,
+        item.notificationHour ?? _settings.defaultHour,
+        item.notificationMinute ?? _settings.defaultMinute);
+    await item.save();
+    await _reschedule(item);
+  }
+
+  Future<void> clearSnooze(ReminderItem item) async {
+    item.snoozedUntil = null;
     await item.save();
     await _reschedule(item);
   }

@@ -6,14 +6,23 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../models/reminder_item.dart';
 import '../utils/date_math.dart';
+import '../utils/friendly_copy.dart';
+
+/// One planned notification: when it fires plus the (fixed-at-schedule-time)
+/// text, and the stable id to use.
+class _Nudge {
+  _Nudge({required this.id, required this.when, required this.title, required this.body});
+  final int id;
+  final tz.TZDateTime when;
+  final String title;
+  final String body;
+}
 
 /// Owns all local-notification scheduling.
 ///
-/// Design rule (see CLAUDE.md §4): stored [ReminderItem]s are the source of
-/// truth; scheduled notifications are derived state. [reconcile] rebuilds the
-/// entire schedule from the items, and is called on every app launch and after
-/// any change. Uses exact, zoned alarms so date-sensitive reminders fire on the
-/// right day even in Doze.
+/// Stored [ReminderItem]s are the source of truth; notifications are derived
+/// state. [reconcile] rebuilds the whole schedule. Supports multiple lead-time
+/// nudges, escalating daily nudges once overdue, and snooze.
 class NotificationService {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
@@ -26,8 +35,10 @@ class NotificationService {
   static const String _channelDescription =
       'Upcoming vehicle and life maintenance reminders';
 
+  /// How many days of daily "still overdue" nudges to schedule.
+  static const int _overdueDays = 14;
+
   /// Set by the app so a tapped notification can open the relevant item.
-  /// Receives the item id carried in the notification payload.
   void Function(String itemId)? onSelectItem;
 
   bool _initialized = false;
@@ -40,8 +51,6 @@ class NotificationService {
       final localZone = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(localZone.identifier));
     } catch (e) {
-      // Fall back to UTC if the platform zone can't be resolved; scheduling
-      // still works, just anchored to UTC.
       debugPrint('Could not resolve local timezone, using UTC: $e');
       tz.setLocalLocation(tz.getLocation('UTC'));
     }
@@ -75,8 +84,6 @@ class NotificationService {
       _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
 
-  /// Requests notification + exact-alarm permissions (Android 13+ / 12+).
-  /// Safe to call every launch; the OS only prompts when needed.
   Future<void> requestPermissions() async {
     final android = _androidPlugin;
     if (android == null) return;
@@ -84,8 +91,6 @@ class NotificationService {
     await android.requestExactAlarmsPermission();
   }
 
-  /// Returns the app id used if the app was launched by tapping a notification
-  /// while it was terminated, so the app can navigate to it on startup.
   Future<String?> initialLaunchItemId() async {
     final details = await _plugin.getNotificationAppLaunchDetails();
     if (details?.didNotificationLaunchApp ?? false) {
@@ -94,11 +99,9 @@ class NotificationService {
     return null;
   }
 
-  /// The concrete local datetimes an active item should fire at, one per lead
-  /// time, skipping any already in the past. Exposed (and pure w.r.t. `now`)
-  /// so it can be unit-tested. [defaultHour]/[defaultMinute] apply when the
-  /// item has no per-item time.
-  List<tz.TZDateTime> scheduleTimesFor(
+  /// Builds the concrete list of nudges an active item should fire, skipping
+  /// anything already in the past. Pure w.r.t. [now] so it can be reasoned about.
+  List<_Nudge> _plan(
     ReminderItem item, {
     required int defaultHour,
     required int defaultMinute,
@@ -106,26 +109,70 @@ class NotificationService {
   }) {
     final hour = item.notificationHour ?? defaultHour;
     final minute = item.notificationMinute ?? defaultMinute;
-    final due = item.nextDueDate;
+    final base = item.notificationBaseId;
+    final nudges = <_Nudge>[];
 
-    final times = <tz.TZDateTime>[];
-    for (final lead in item.leadTimes) {
-      final base = dateOnly(due).subtract(Duration(days: lead));
-      final fire = tz.TZDateTime(
-          tz.local, base.year, base.month, base.day, hour, minute);
-      if (fire.isAfter(now)) times.add(fire);
+    tz.TZDateTime at(DateTime day) =>
+        tz.TZDateTime(tz.local, day.year, day.month, day.day, hour, minute);
+
+    // Snoozed: a single nudge at the snooze time, nothing else.
+    final snooze = item.snoozedUntil;
+    if (snooze != null) {
+      final when = tz.TZDateTime.from(snooze, tz.local);
+      if (when.isAfter(now)) {
+        final asToday = DateTime(snooze.year, snooze.month, snooze.day);
+        nudges.add(_Nudge(
+          id: base,
+          when: when,
+          title: FriendlyCopy.notificationTitle(item, today: asToday),
+          body: FriendlyCopy.line(item, today: asToday),
+        ));
+      }
+      return nudges;
     }
-    return times;
+
+    final due = dateOnly(item.nextDueDate);
+
+    // Lead-time nudges (e.g. 2 weeks / 3 days before).
+    final leads = [...item.leadTimes]..sort();
+    for (var i = 0; i < leads.length && i < 14; i++) {
+      final fireDay = due.subtract(Duration(days: leads[i]));
+      final when = at(fireDay);
+      if (when.isAfter(now)) {
+        nudges.add(_Nudge(
+          id: base + 1 + i,
+          when: when,
+          title: FriendlyCopy.notificationTitle(item, today: fireDay),
+          body: FriendlyCopy.line(item, today: fireDay),
+        ));
+      }
+    }
+
+    // Escalating daily nudges once overdue.
+    if (item.escalateWhenOverdue) {
+      for (var d = 0; d < _overdueDays; d++) {
+        final fireDay = due.add(Duration(days: d));
+        final when = at(fireDay);
+        if (when.isAfter(now)) {
+          nudges.add(_Nudge(
+            id: base + 16 + d,
+            when: when,
+            title: FriendlyCopy.notificationTitle(item, today: fireDay),
+            body: FriendlyCopy.line(item, today: fireDay),
+          ));
+        }
+      }
+    }
+
+    return nudges;
   }
 
-  Future<void> _scheduleOne(
-      int id, ReminderItem item, tz.TZDateTime when) async {
+  Future<void> _scheduleOne(_Nudge n, String payload) async {
     await _plugin.zonedSchedule(
-      id: id,
-      title: item.title,
-      body:
-          '${item.category.label} · due ${item.nextDueDate.day}/${item.nextDueDate.month}/${item.nextDueDate.year}',
-      scheduledDate: when,
+      id: n.id,
+      title: n.title,
+      body: n.body,
+      scheduledDate: n.when,
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,
@@ -136,7 +183,7 @@ class NotificationService {
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      payload: item.id,
+      payload: payload,
     );
   }
 
@@ -149,17 +196,14 @@ class NotificationService {
     await cancelForItem(item);
     if (!item.isActive || !_initialized) return;
     final now = tz.TZDateTime.now(tz.local);
-    final times = scheduleTimesFor(item,
-        defaultHour: defaultHour, defaultMinute: defaultMinute, now: now);
-    for (var i = 0; i < times.length; i++) {
-      await _scheduleOne(item.notificationBaseId + i, item, times[i]);
+    for (final n in _plan(item,
+        defaultHour: defaultHour, defaultMinute: defaultMinute, now: now)) {
+      await _scheduleOne(n, item.id);
     }
   }
 
-  /// Cancels every notification belonging to an item (across all its lead times).
+  /// Cancels every notification belonging to an item (across all its ids).
   Future<void> cancelForItem(ReminderItem item) async {
-    // Cancel a generous range of ids from the item's base to cover any lead
-    // times that may have been removed since the last schedule.
     for (var i = 0; i < 32; i++) {
       await _plugin.cancel(id: item.notificationBaseId + i);
     }
@@ -176,15 +220,13 @@ class NotificationService {
     final now = tz.TZDateTime.now(tz.local);
     for (final item in items) {
       if (!item.isActive) continue;
-      final times = scheduleTimesFor(item,
-          defaultHour: defaultHour, defaultMinute: defaultMinute, now: now);
-      for (var i = 0; i < times.length; i++) {
-        await _scheduleOne(item.notificationBaseId + i, item, times[i]);
+      for (final n in _plan(item,
+          defaultHour: defaultHour, defaultMinute: defaultMinute, now: now)) {
+        await _scheduleOne(n, item.id);
       }
     }
   }
 
-  /// Fires a notification a few seconds out — used by Settings' "Test" button.
   Future<void> showTestNotification() async {
     if (!_initialized) return;
     final when = tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5));
@@ -206,5 +248,5 @@ class NotificationService {
     );
   }
 
-  static const int _testId = 2147483646; // near max 32-bit int, avoids item ids
+  static const int _testId = 2147483646;
 }

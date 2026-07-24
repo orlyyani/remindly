@@ -1,5 +1,6 @@
 import 'package:hive/hive.dart';
 
+import 'completion_record.dart';
 import 'recurrence_type.dart';
 import 'reminder_category.dart';
 
@@ -28,7 +29,10 @@ class ReminderItem extends HiveObject {
     this.isActive = true,
     this.lastCompletedDate,
     required this.notificationBaseId,
-  });
+    List<CompletionRecord>? completions,
+    this.snoozedUntil,
+    this.escalateWhenOverdue = true,
+  }) : completions = completions ?? <CompletionRecord>[];
 
   @HiveField(0)
   final String id;
@@ -79,6 +83,20 @@ class ReminderItem extends HiveObject {
   /// [notificationBaseId] + leadTimeIndex so ids stay unique and stable.
   @HiveField(12)
   int notificationBaseId;
+
+  /// Completion history, newest appended last. Drives the Detail history list.
+  @HiveField(13)
+  List<CompletionRecord> completions;
+
+  /// When set (and in the future), the item is snoozed: normal nudges are
+  /// suppressed and a single reminder fires at this time instead.
+  @HiveField(14)
+  DateTime? snoozedUntil;
+
+  /// When true, once the item is overdue it nudges again daily (for a bounded
+  /// number of days) until marked done.
+  @HiveField(15)
+  bool escalateWhenOverdue;
 
   ReminderCategory get category => ReminderCategory.fromName(categoryName);
   set category(ReminderCategory value) => categoryName = value.name;

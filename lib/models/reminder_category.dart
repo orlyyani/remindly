@@ -30,26 +30,26 @@ enum ReminderCategory {
     }
   }
 
-  /// Color used for the category dot/chip so the list scans at a glance.
+  /// Color used for the category dot/chip/card tint so the list scans at a glance.
   Color get color {
     switch (this) {
       case ReminderCategory.car:
-        return const Color(0xFF1E88E5); // blue
+        return const Color(0xFF4C6FFF); // indigo-blue
       case ReminderCategory.motorcycle:
-        return const Color(0xFFF4511E); // deep orange
+        return const Color(0xFFF5A623); // orange
       case ReminderCategory.personal:
-        return const Color(0xFF43A047); // green
+        return const Color(0xFFE86AA6); // pink
     }
   }
 
   IconData get icon {
     switch (this) {
       case ReminderCategory.car:
-        return Icons.directions_car;
+        return Icons.directions_car_filled;
       case ReminderCategory.motorcycle:
         return Icons.two_wheeler;
       case ReminderCategory.personal:
-        return Icons.celebration;
+        return Icons.favorite;
     }
   }
 }

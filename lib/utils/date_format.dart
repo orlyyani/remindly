@@ -11,6 +11,13 @@ const List<String> _months = [
 /// e.g. "24 Jul 2026".
 String formatDueDate(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
 
+/// Short month + day, e.g. "Aug 2".
+String formatShortDate(DateTime d) => '${_months[d.month - 1]} ${d.day}';
+
+/// Month + day + year, e.g. "Aug 2, 2026".
+String formatMediumDate(DateTime d) =>
+    '${_months[d.month - 1]} ${d.day}, ${d.year}';
+
 /// Glanceable relative label used on the home list.
 /// Overdue -> "Overdue by 3 days", today -> "Due today", future -> "in 5 days".
 String relativeDueLabel(DateTime due, {required DateTime today}) {

@@ -15,6 +15,17 @@ class AppSettings {
   static const _kMinute = 'defaultMinute';
   static const _kLeadDays = 'defaultLeadDays';
   static const _kNextIdBase = 'nextIdBase';
+  static const _kDisplayName = 'displayName';
+  static const _kHasSeenWelcome = 'hasSeenWelcome';
+
+  /// Optional local name shown in the home greeting. Empty = no name (no account,
+  /// stored only on this device).
+  String get displayName => _box.get(_kDisplayName, defaultValue: '') as String;
+  set displayName(String v) => _box.put(_kDisplayName, v);
+
+  bool get hasSeenWelcome =>
+      _box.get(_kHasSeenWelcome, defaultValue: false) as bool;
+  set hasSeenWelcome(bool v) => _box.put(_kHasSeenWelcome, v);
 
   int get defaultHour => _box.get(_kHour, defaultValue: 9) as int;
   set defaultHour(int v) => _box.put(_kHour, v);

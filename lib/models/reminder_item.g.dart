@@ -30,13 +30,16 @@ class ReminderItemAdapter extends TypeAdapter<ReminderItem> {
       isActive: fields[10] as bool,
       lastCompletedDate: fields[11] as DateTime?,
       notificationBaseId: fields[12] as int,
+      completions: (fields[13] as List?)?.cast<CompletionRecord>(),
+      snoozedUntil: fields[14] as DateTime?,
+      escalateWhenOverdue: fields[15] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, ReminderItem obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(16)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -62,7 +65,13 @@ class ReminderItemAdapter extends TypeAdapter<ReminderItem> {
       ..writeByte(11)
       ..write(obj.lastCompletedDate)
       ..writeByte(12)
-      ..write(obj.notificationBaseId);
+      ..write(obj.notificationBaseId)
+      ..writeByte(13)
+      ..write(obj.completions)
+      ..writeByte(14)
+      ..write(obj.snoozedUntil)
+      ..writeByte(15)
+      ..write(obj.escalateWhenOverdue);
   }
 
   @override
