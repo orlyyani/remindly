@@ -3,7 +3,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -118,22 +118,15 @@ class BackupService {
   /// Lets the user pick a backup file and restores it, replacing current data.
   /// Returns the number of reminders imported, or null if cancelled.
   Future<int?> importFromFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      withData: true,
+    const jsonGroup = XTypeGroup(
+      label: 'Remindly backup',
+      extensions: ['json'],
+      mimeTypes: ['application/json'],
     );
-    if (result == null || result.files.isEmpty) return null;
+    final file = await openFile(acceptedTypeGroups: [jsonGroup]);
+    if (file == null) return null; // cancelled
 
-    final picked = result.files.first;
-    String content;
-    if (picked.bytes != null) {
-      content = utf8.decode(picked.bytes!);
-    } else if (picked.path != null) {
-      content = await File(picked.path!).readAsString();
-    } else {
-      throw const FormatException('Could not read the selected file.');
-    }
-
+    final content = await file.readAsString();
     final data = jsonDecode(content) as Map<String, dynamic>;
     if (data['app'] != 'remindly') {
       throw const FormatException('This is not a Remindly backup file.');
