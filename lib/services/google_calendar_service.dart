@@ -44,10 +44,21 @@ class GoogleCalendarService {
     try {
       await _gsi.initialize(serverClientId: serverClientId);
       _initialized = true;
-      // Try to restore a previous session silently.
-      _account = await _gsi.attemptLightweightAuthentication();
     } catch (e) {
       debugPrint('Google sign-in init failed: $e');
+    }
+  }
+
+  /// Silently restore a previous session. Only call this when the user has
+  /// already opted into calendar sync — on Android it can surface an account
+  /// picker, which we must not show before opt-in.
+  Future<void> restoreSession() async {
+    if (!isConfigured) return;
+    await init();
+    try {
+      _account = await _gsi.attemptLightweightAuthentication();
+    } catch (e) {
+      debugPrint('Google session restore failed: $e');
     }
   }
 

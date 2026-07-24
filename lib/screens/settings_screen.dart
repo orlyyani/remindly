@@ -110,6 +110,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final ok = await _calendar.connect();
       if (ok) {
+        widget.settings.calendarConnected = true;
         await widget.repository.syncAllToCalendar();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -128,6 +129,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _disconnectCalendar() async {
     await _calendar.disconnect();
+    widget.settings.calendarConnected = false;
     if (mounted) setState(() {});
   }
 

@@ -32,9 +32,14 @@ Future<void> main() async {
   await notifications.init();
 
   // Optional Google Calendar mirror (opt-in). init() is a no-op until an OAuth
-  // client id is configured, so the app runs fine without it.
+  // client id is configured, so the app runs fine without it. Only restore a
+  // Google session if the user previously opted in — otherwise we'd prompt for
+  // Google on launch before they've asked for sync.
   final calendar = GoogleCalendarService.instance;
   await calendar.init();
+  if (settings.calendarConnected) {
+    await calendar.restoreSession();
+  }
 
   final repository = ReminderRepository(
     box: remindersBox,
