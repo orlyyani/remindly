@@ -34,7 +34,7 @@ void main() {
     );
 
     expect(find.text('Car PMS'), findsOneWidget);
-    expect(find.text('31 Jul 2026'), findsOneWidget);
+    expect(find.text('31 Jul 2026 · Every 6 months'), findsOneWidget);
     expect(find.text('in 7 days'), findsOneWidget);
   });
 

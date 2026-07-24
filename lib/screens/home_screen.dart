@@ -93,10 +93,10 @@ class HomeScreenState extends State<HomeScreen> {
                   return _EmptyState(hasFilter: _filter != null);
                 }
                 return ListView.separated(
-                  padding: const EdgeInsets.only(bottom: 96),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                   itemCount: items.length,
                   separatorBuilder: (context, index) =>
-                      const Divider(height: 1),
+                      const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final item = items[index];
                     return ReminderTile(
