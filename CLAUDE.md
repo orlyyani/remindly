@@ -38,8 +38,16 @@ remember to open the app to stay on top of things, the app has failed.
 >   not installed** — iOS builds are unavailable until the full Xcode is installed
 >   from the App Store (Android-first, so this is intentionally deferred).
 > - Toolchain env vars (`JAVA_HOME`, `ANDROID_HOME`, `PATH`) are appended to `~/.zshrc`.
-> - The app is still the default `flutter create` counter — the reminder features in
->   sections 3–6 are not built yet. Dependencies from section 8 are already added.
+> - **MVP (§6) is implemented**: add/edit/delete, Hive persistence, recurrence
+>   (none / every N days·weeks·months·years), local notifications with reconcile-
+>   on-launch + boot receiver, home list sorted by due with "in X days" labels and
+>   mark-as-done. `flutter analyze` clean, tests pass, debug + release APK build.
+> - **Not yet verified on a real device** — notification firing and reboot
+>   rescheduling still need a physical Android phone (emulators are unreliable here).
+>
+> Code layout follows §7. The date/recurrence "brain" is in `lib/utils/date_math.dart`
+> (unit-tested in `test/utils/`). Notifications live in
+> `lib/services/notification_service.dart`; storage/sync in `lib/data/`.
 
 Everyday commands:
 
