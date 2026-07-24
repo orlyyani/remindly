@@ -22,11 +22,19 @@ class AddEditScreen extends StatefulWidget {
     required this.repository,
     required this.settings,
     this.existing,
+    this.prefillTitle,
+    this.prefillCategory,
+    this.prefillYearly = false,
   });
 
   final ReminderRepository repository;
   final AppSettings settings;
   final ReminderItem? existing;
+
+  /// Optional starting values when creating from a quick-add suggestion.
+  final String? prefillTitle;
+  final ReminderCategory? prefillCategory;
+  final bool prefillYearly;
 
   @override
   State<AddEditScreen> createState() => _AddEditScreenState();
@@ -53,11 +61,12 @@ class _AddEditScreenState extends State<AddEditScreen> {
     super.initState();
     final e = widget.existing;
     final today = dateOnly(DateTime.now());
-    _title = TextEditingController(text: e?.title ?? '');
-    _category = e?.category ?? ReminderCategory.car;
+    _title = TextEditingController(text: e?.title ?? widget.prefillTitle ?? '');
+    _category =
+        e?.category ?? widget.prefillCategory ?? ReminderCategory.car;
 
     if (e == null) {
-      _mode = _RepeatMode.monthly;
+      _mode = widget.prefillYearly ? _RepeatMode.yearly : _RepeatMode.monthly;
       _intervalMonths = 6;
       _lastDone = today;
       _fixedDate = today.add(const Duration(days: 30));

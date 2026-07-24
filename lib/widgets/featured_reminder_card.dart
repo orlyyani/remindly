@@ -16,6 +16,7 @@ class FeaturedReminderCard extends StatelessWidget {
     required this.onTap,
     required this.onMarkDone,
     required this.onSnooze,
+    this.showSnooze = true,
   });
 
   final ReminderItem item;
@@ -23,6 +24,7 @@ class FeaturedReminderCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onMarkDone;
   final VoidCallback onSnooze;
+  final bool showSnooze;
 
   String _statusLine() {
     final days = daysBetween(today, item.nextDueDate);
@@ -102,18 +104,20 @@ class FeaturedReminderCard extends StatelessWidget {
                     ),
                     child: const Text('Mark done'),
                   ),
-                  const SizedBox(width: 12),
-                  FilledButton(
-                    onPressed: onSnooze,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.white.withValues(alpha: 0.18),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(0, 48),
-                      padding: const EdgeInsets.symmetric(horizontal: 22),
-                      elevation: 0,
+                  if (showSnooze) ...[
+                    const SizedBox(width: 12),
+                    FilledButton(
+                      onPressed: onSnooze,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.white.withValues(alpha: 0.18),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 22),
+                        elevation: 0,
+                      ),
+                      child: const Text('Snooze'),
                     ),
-                    child: const Text('Snooze'),
-                  ),
+                  ],
                 ],
               ),
             ],
