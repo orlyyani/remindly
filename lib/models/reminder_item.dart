@@ -32,6 +32,7 @@ class ReminderItem extends HiveObject {
     List<CompletionRecord>? completions,
     this.snoozedUntil,
     this.escalateWhenOverdue = true,
+    this.googleEventId,
   }) : completions = completions ?? <CompletionRecord>[];
 
   @HiveField(0)
@@ -98,6 +99,11 @@ class ReminderItem extends HiveObject {
   /// reading items saved before this field existed.
   @HiveField(15, defaultValue: true)
   bool escalateWhenOverdue;
+
+  /// Id of the mirrored Google Calendar event, when calendar sync is on. Null
+  /// until first synced; used to update/delete the same event later.
+  @HiveField(16)
+  String? googleEventId;
 
   ReminderCategory get category => ReminderCategory.fromName(categoryName);
   set category(ReminderCategory value) => categoryName = value.name;

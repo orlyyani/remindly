@@ -7,6 +7,7 @@ import '../models/completion_record.dart';
 import '../models/recurrence_type.dart';
 import '../models/reminder_category.dart';
 import '../models/reminder_item.dart';
+import '../services/google_calendar_service.dart';
 import '../services/notification_service.dart';
 import '../utils/date_math.dart';
 import 'app_settings.dart';
@@ -19,15 +20,18 @@ class ReminderRepository {
     required Box<ReminderItem> box,
     required AppSettings settings,
     required NotificationService notifications,
+    GoogleCalendarService? calendar,
   })  : _box = box,
         _settings = settings,
-        _notifications = notifications;
+        _notifications = notifications,
+        _calendar = calendar;
 
   static const String boxName = 'reminders';
 
   final Box<ReminderItem> _box;
   final AppSettings _settings;
   final NotificationService _notifications;
+  final GoogleCalendarService? _calendar;
 
   Box<ReminderItem> get box => _box;
 
@@ -77,10 +81,13 @@ class ReminderRepository {
   Future<void> save(ReminderItem item) async {
     await _box.put(item.id, item);
     await _reschedule(item);
+    await _syncCalendar(item);
   }
 
   Future<void> delete(ReminderItem item) async {
     await _notifications.cancelForItem(item);
+    final cal = _calendar;
+    if (cal != null && cal.isConnected) await cal.delete(item);
     await _box.delete(item.id);
   }
 
@@ -88,6 +95,34 @@ class ReminderRepository {
     item.isActive = active;
     await item.save();
     await _reschedule(item);
+    await _syncCalendar(item);
+  }
+
+  /// Best-effort mirror to Google Calendar. No-op unless connected; never
+  /// throws into callers (the local write already succeeded).
+  Future<void> _syncCalendar(ReminderItem item) async {
+    final cal = _calendar;
+    if (cal == null || !cal.isConnected) return;
+    if (item.isActive) {
+      final id = await cal.push(item);
+      if (id != item.googleEventId) {
+        item.googleEventId = id;
+        await item.save();
+      }
+    } else if (item.googleEventId != null) {
+      await cal.delete(item);
+      item.googleEventId = null;
+      await item.save();
+    }
+  }
+
+  /// Pushes every item's current state to the calendar (used after connecting).
+  Future<void> syncAllToCalendar() async {
+    final cal = _calendar;
+    if (cal == null || !cal.isConnected) return;
+    for (final item in _box.values.toList()) {
+      await _syncCalendar(item);
+    }
   }
 
   /// Marks an item done: records a completion in its history and rolls it to
@@ -124,6 +159,7 @@ class ReminderRepository {
     }
     await item.save();
     await _reschedule(item);
+    await _syncCalendar(item);
   }
 
   /// Snoozes an item: suppress normal nudges and re-nudge [days] from now.

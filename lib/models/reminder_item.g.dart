@@ -33,13 +33,14 @@ class ReminderItemAdapter extends TypeAdapter<ReminderItem> {
       completions: (fields[13] as List?)?.cast<CompletionRecord>(),
       snoozedUntil: fields[14] as DateTime?,
       escalateWhenOverdue: fields[15] == null ? true : fields[15] as bool,
+      googleEventId: fields[16] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, ReminderItem obj) {
     writer
-      ..writeByte(16)
+      ..writeByte(17)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -71,7 +72,9 @@ class ReminderItemAdapter extends TypeAdapter<ReminderItem> {
       ..writeByte(14)
       ..write(obj.snoozedUntil)
       ..writeByte(15)
-      ..write(obj.escalateWhenOverdue);
+      ..write(obj.escalateWhenOverdue)
+      ..writeByte(16)
+      ..write(obj.googleEventId);
   }
 
   @override

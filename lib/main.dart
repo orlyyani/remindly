@@ -8,6 +8,7 @@ import 'models/completion_record.dart';
 import 'models/reminder_item.dart';
 import 'screens/home_shell.dart';
 import 'screens/welcome_screen.dart';
+import 'services/google_calendar_service.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
@@ -30,10 +31,16 @@ Future<void> main() async {
   final notifications = NotificationService.instance;
   await notifications.init();
 
+  // Optional Google Calendar mirror (opt-in). init() is a no-op until an OAuth
+  // client id is configured, so the app runs fine without it.
+  final calendar = GoogleCalendarService.instance;
+  await calendar.init();
+
   final repository = ReminderRepository(
     box: remindersBox,
     settings: settings,
     notifications: notifications,
+    calendar: calendar,
   );
   final backupService = BackupService(
     box: remindersBox,

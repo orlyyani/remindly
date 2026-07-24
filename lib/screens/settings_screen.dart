@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/app_settings.dart';
 import '../data/backup_service.dart';
 import '../data/reminder_repository.dart';
+import '../services/google_calendar_service.dart';
 import '../services/notification_service.dart';
 
 /// Settings: your name (local, optional), default reminder time & lead time,
@@ -101,6 +102,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  final _calendar = GoogleCalendarService.instance;
+  bool _syncing = false;
+
+  Future<void> _connectCalendar() async {
+    setState(() => _syncing = true);
+    try {
+      final ok = await _calendar.connect();
+      if (ok) {
+        await widget.repository.syncAllToCalendar();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Connected to ${_calendar.accountEmail}. Synced.')));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Couldn\'t connect: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
+  Future<void> _disconnectCalendar() async {
+    await _calendar.disconnect();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _syncNow() async {
+    setState(() => _syncing = true);
+    await widget.repository.syncAllToCalendar();
+    if (mounted) {
+      setState(() => _syncing = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Synced to Google Calendar')));
+    }
+  }
+
   Future<void> _export() async {
     try {
       await widget.backupService.exportToShareSheet();
@@ -130,6 +170,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       }
     }
+  }
+
+  Widget _buildCalendarSection(ThemeData theme) {
+    if (!_calendar.isConfigured) {
+      return ListTile(
+        leading: const Icon(Icons.event_outlined),
+        title: const Text('Google Calendar sync'),
+        subtitle: const Text('Not set up on this build yet'),
+        enabled: false,
+      );
+    }
+    if (_calendar.isConnected) {
+      return Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.event_available, color: Color(0xFF2E9E5B)),
+            title: const Text('Google Calendar'),
+            subtitle: Text('Connected as ${_calendar.accountEmail ?? ''}'),
+            trailing: TextButton(
+                onPressed: _syncing ? null : _disconnectCalendar,
+                child: const Text('Disconnect')),
+          ),
+          ListTile(
+            leading: const Icon(Icons.sync),
+            title: const Text('Sync all now'),
+            subtitle: const Text('Push every reminder to your calendar'),
+            trailing: _syncing
+                ? const SizedBox(
+                    width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : null,
+            onTap: _syncing ? null : _syncNow,
+          ),
+        ],
+      );
+    }
+    return ListTile(
+      leading: const Icon(Icons.event_outlined),
+      title: const Text('Connect Google Calendar'),
+      subtitle: const Text('Mirror reminders as calendar events (app still notifies)'),
+      trailing: _syncing
+          ? const SizedBox(
+              width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+          : const Icon(Icons.chevron_right),
+      onTap: _syncing ? null : _connectCalendar,
+    );
   }
 
   @override
@@ -184,6 +269,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }
             },
           ),
+          const Divider(),
+          _buildCalendarSection(theme),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.ios_share),
