@@ -71,7 +71,8 @@ ThemeData buildAppTheme(Brightness brightness) {
       iconTheme: IconThemeData(color: ink),
     ),
     cardTheme: CardThemeData(
-      elevation: 0,
+      elevation: 6,
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.4 : 0.10),
       color: isDark ? AppColors.surfaceDark : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
       margin: EdgeInsets.zero,
@@ -81,6 +82,9 @@ ThemeData buildAppTheme(Brightness brightness) {
         backgroundColor: AppColors.purple,
         foregroundColor: Colors.white,
         minimumSize: const Size(0, 58),
+        // Soft coloured glow under the primary (purple) buttons, like the mockups.
+        elevation: 8,
+        shadowColor: AppColors.purple.withValues(alpha: 0.45),
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
         textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),

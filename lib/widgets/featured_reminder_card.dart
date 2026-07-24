@@ -46,6 +46,8 @@ class FeaturedReminderCard extends StatelessWidget {
       color: AppColors.purple,
       borderRadius: BorderRadius.circular(28),
       clipBehavior: Clip.antiAlias,
+      elevation: 12,
+      shadowColor: AppColors.purple.withValues(alpha: 0.5),
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -96,6 +98,7 @@ class FeaturedReminderCard extends StatelessWidget {
                       foregroundColor: AppColors.purple,
                       minimumSize: const Size(0, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 22),
+                      elevation: 0,
                     ),
                     child: const Text('Mark done'),
                   ),
@@ -107,6 +110,7 @@ class FeaturedReminderCard extends StatelessWidget {
                       foregroundColor: Colors.white,
                       minimumSize: const Size(0, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 22),
+                      elevation: 0,
                     ),
                     child: const Text('Snooze'),
                   ),

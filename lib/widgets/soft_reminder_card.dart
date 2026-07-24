@@ -55,6 +55,8 @@ class SoftReminderCard extends StatelessWidget {
       color: tint,
       borderRadius: BorderRadius.circular(24),
       clipBehavior: Clip.antiAlias,
+      elevation: 5,
+      shadowColor: color.withValues(alpha: 0.28),
       child: InkWell(
         onTap: onTap,
         child: Opacity(
