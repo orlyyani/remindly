@@ -58,6 +58,7 @@ class ReminderRepository {
     bool isActive = true,
     bool escalateWhenOverdue = true,
     DateTime? lastCompletedDate,
+    String? iconKey,
   }) {
     final id = DateTime.now().microsecondsSinceEpoch.toString();
     return ReminderItem(
@@ -65,6 +66,7 @@ class ReminderRepository {
       title: title,
       categoryName: category.name,
       notes: notes,
+      iconKey: iconKey,
       nextDueDate: dateOnly(nextDueDate),
       recurrenceTypeIndex: recurrenceType.index,
       recurrenceInterval: recurrenceInterval,

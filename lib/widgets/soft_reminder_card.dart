@@ -96,7 +96,7 @@ class SoftReminderCard extends StatelessWidget {
                     color: theme.colorScheme.surface.withValues(alpha: 0.8),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(item.category.icon, color: color, size: 26),
+                  child: Icon(item.icon, color: color, size: 26),
                 ),
               ],
             ),

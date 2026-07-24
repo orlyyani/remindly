@@ -126,7 +126,7 @@ class _DetailScreenState extends State<DetailScreen> {
                         color: theme.colorScheme.surface,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(item.category.icon, color: color, size: 34),
+                      child: Icon(item.icon, color: color, size: 34),
                     ),
                     const SizedBox(height: 14),
                     Text(item.title,

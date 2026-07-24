@@ -4,6 +4,7 @@ import '../data/app_settings.dart';
 import '../data/reminder_repository.dart';
 import '../models/recurrence_type.dart';
 import '../models/reminder_category.dart';
+import '../models/reminder_icon.dart';
 import '../models/reminder_item.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
@@ -45,6 +46,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
   late final TextEditingController _title;
 
   late ReminderCategory _category;
+  String? _iconKey;
   late _RepeatMode _mode;
   late int _intervalMonths;
   late DateTime _lastDone; // for monthly
@@ -64,6 +66,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
     _title = TextEditingController(text: e?.title ?? widget.prefillTitle ?? '');
     _category =
         e?.category ?? widget.prefillCategory ?? ReminderCategory.car;
+    _iconKey = e?.iconKey;
 
     if (e == null) {
       _mode = widget.prefillYearly ? _RepeatMode.yearly : _RepeatMode.monthly;
@@ -190,6 +193,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       final item = widget.existing!;
       item.title = _title.text.trim();
       item.category = _category;
+      item.iconKey = _iconKey;
       item.nextDueDate = _nextDue;
       item.recurrenceType = type;
       item.recurrenceInterval = interval;
@@ -201,6 +205,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       final item = widget.repository.create(
         title: _title.text.trim(),
         category: _category,
+        iconKey: _iconKey,
         nextDueDate: _nextDue,
         recurrenceType: type,
         recurrenceInterval: interval,
@@ -281,6 +286,9 @@ class _AddEditScreenState extends State<AddEditScreen> {
                           ),
                       ],
                     ),
+                    const SizedBox(height: 22),
+                    _label('Icon'),
+                    _iconPickerRow(),
                     const SizedBox(height: 22),
                     _label('Repeats'),
                     Wrap(
@@ -367,6 +375,101 @@ class _AddEditScreenState extends State<AddEditScreen> {
         ),
       ),
     );
+  }
+
+  /// The icon shown right now: the chosen one, or the category default.
+  IconData get _effectiveIcon =>
+      ReminderIcons.resolve(_iconKey) ?? _category.icon;
+
+  Widget _iconPickerRow() {
+    final theme = Theme.of(context);
+    final color = _category.color;
+    return Material(
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: _pickIcon,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(_effectiveIcon, color: color),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  _iconKey == null ? 'Default for this group' : 'Custom icon',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (_iconKey != null)
+                TextButton(
+                  onPressed: () => setState(() => _iconKey = null),
+                  child: const Text('Reset'),
+                ),
+              Icon(Icons.chevron_right,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickIcon() async {
+    final theme = Theme.of(context);
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Choose an icon',
+                    style: theme.textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: GridView.count(
+                    crossAxisCount: 5,
+                    shrinkWrap: true,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    children: [
+                      for (final ic in ReminderIcons.catalog)
+                        _IconGridTile(
+                          icon: ic.icon,
+                          label: ic.label,
+                          selected: ic.key == _iconKey,
+                          color: _category.color,
+                          onTap: () => Navigator.pop(context, ic.key),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (selected != null) setState(() => _iconKey = selected);
   }
 
   Widget _scheduleRow() {
@@ -518,6 +621,55 @@ class _ChoicePill extends StatelessWidget {
                   ? Colors.white
                   : theme.colorScheme.onSurface.withValues(alpha: 0.75),
               fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _IconGridTile extends StatelessWidget {
+  const _IconGridTile({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Tooltip(
+      message: label,
+      child: Material(
+        color: selected
+            ? color.withValues(alpha: 0.18)
+            : theme.colorScheme.onSurface.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: selected ? color : Colors.transparent,
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: selected
+                  ? color
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.75),
             ),
           ),
         ),

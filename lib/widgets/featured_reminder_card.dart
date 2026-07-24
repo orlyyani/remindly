@@ -87,7 +87,7 @@ class FeaturedReminderCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  _IconBadge(icon: item.category.icon),
+                  _IconBadge(icon: item.icon),
                 ],
               ),
               const SizedBox(height: 18),

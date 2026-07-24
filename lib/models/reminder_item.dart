@@ -1,8 +1,11 @@
 import 'package:hive/hive.dart';
 
+import 'package:flutter/material.dart';
+
 import 'completion_record.dart';
 import 'recurrence_type.dart';
 import 'reminder_category.dart';
+import 'reminder_icon.dart';
 
 part 'reminder_item.g.dart';
 
@@ -33,6 +36,7 @@ class ReminderItem extends HiveObject {
     this.snoozedUntil,
     this.escalateWhenOverdue = true,
     this.googleEventId,
+    this.iconKey,
   }) : completions = completions ?? <CompletionRecord>[];
 
   @HiveField(0)
@@ -105,6 +109,11 @@ class ReminderItem extends HiveObject {
   @HiveField(16)
   String? googleEventId;
 
+  /// Optional per-item icon, stored as a [ReminderIcons] key. When null (or the
+  /// key is unknown), the item shows its [category] icon instead.
+  @HiveField(17)
+  String? iconKey;
+
   ReminderCategory get category => ReminderCategory.fromName(categoryName);
   set category(ReminderCategory value) => categoryName = value.name;
 
@@ -112,4 +121,8 @@ class ReminderItem extends HiveObject {
       RecurrenceType.fromIndex(recurrenceTypeIndex);
   set recurrenceType(RecurrenceType value) =>
       recurrenceTypeIndex = value.index;
+
+  /// The icon to display: the per-item [iconKey] if set, otherwise the
+  /// category's default icon.
+  IconData get icon => ReminderIcons.resolve(iconKey) ?? category.icon;
 }

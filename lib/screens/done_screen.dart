@@ -88,7 +88,7 @@ class DoneScreen extends StatelessWidget {
                                   .withValues(alpha: 0.15),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(e.item.category.icon,
+                            child: Icon(e.item.icon,
                                 color: e.item.category.color, size: 22),
                           ),
                           const SizedBox(width: 14),

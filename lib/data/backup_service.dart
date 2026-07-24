@@ -47,6 +47,7 @@ class BackupService {
         'notificationBaseId': i.notificationBaseId,
         'snoozedUntil': i.snoozedUntil?.toIso8601String(),
         'escalateWhenOverdue': i.escalateWhenOverdue,
+        'iconKey': i.iconKey,
         'completions': i.completions
             .map((c) => {
                   'completedDate': c.completedDate.toIso8601String(),
@@ -75,6 +76,7 @@ class BackupService {
             ? null
             : DateTime.parse(j['snoozedUntil'] as String),
         escalateWhenOverdue: j['escalateWhenOverdue'] as bool? ?? true,
+        iconKey: j['iconKey'] as String?,
         completions: ((j['completions'] as List?) ?? [])
             .map((e) => CompletionRecord(
                   completedDate:

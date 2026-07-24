@@ -7,6 +7,7 @@ import 'data/reminder_repository.dart';
 import 'models/completion_record.dart';
 import 'models/reminder_item.dart';
 import 'screens/home_shell.dart';
+import 'screens/splash_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'services/google_calendar_service.dart';
 import 'services/notification_service.dart';
@@ -125,7 +126,10 @@ class _RootGate extends StatefulWidget {
 }
 
 class _RootGateState extends State<_RootGate> {
+  bool _showSplash = true;
   late bool _showWelcome = !widget.settings.hasSeenWelcome;
+
+  void _finishSplash() => setState(() => _showSplash = false);
 
   void _finishWelcome() {
     widget.settings.hasSeenWelcome = true;
@@ -134,6 +138,9 @@ class _RootGateState extends State<_RootGate> {
 
   @override
   Widget build(BuildContext context) {
+    if (_showSplash) {
+      return SplashScreen(onDone: _finishSplash);
+    }
     if (_showWelcome) {
       return WelcomeScreen(
         onGetStarted: _finishWelcome,
