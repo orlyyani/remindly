@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -63,6 +65,14 @@ Future<void> main() async {
   // Notifications are derived state — rebuild the whole schedule from storage
   // on every launch (also covers reboot, since local schedules are cleared).
   await repository.reconcileAll();
+
+  // If Google Calendar is connected, refresh the whole mirror on launch so the
+  // calendar always reflects Remindly (catches anything that changed while the
+  // session was gone). Best-effort and idempotent — push() updates the same
+  // events by id, so it never duplicates. Unawaited so it can't delay startup.
+  if (settings.calendarConnected) {
+    unawaited(repository.syncAllToCalendar());
+  }
 
   runApp(ReminderApp(
     repository: repository,
