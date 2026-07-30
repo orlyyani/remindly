@@ -55,29 +55,35 @@ class NotificationService {
       tz.setLocalLocation(tz.getLocation('UTC'));
     }
 
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidInit);
+    // Never let a notification-setup failure brick app startup — init() runs
+    // before runApp(), so an unhandled throw here would freeze the splash.
+    try {
+      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const initSettings = InitializationSettings(android: androidInit);
 
-    await _plugin.initialize(
-      settings: initSettings,
-      onDidReceiveNotificationResponse: (response) {
-        final payload = response.payload;
-        if (payload != null && payload.isNotEmpty) {
-          onSelectItem?.call(payload);
-        }
-      },
-    );
+      await _plugin.initialize(
+        settings: initSettings,
+        onDidReceiveNotificationResponse: (response) {
+          final payload = response.payload;
+          if (payload != null && payload.isNotEmpty) {
+            onSelectItem?.call(payload);
+          }
+        },
+      );
 
-    await _androidPlugin?.createNotificationChannel(
-      const AndroidNotificationChannel(
-        _channelId,
-        _channelName,
-        description: _channelDescription,
-        importance: Importance.high,
-      ),
-    );
+      await _androidPlugin?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _channelId,
+          _channelName,
+          description: _channelDescription,
+          importance: Importance.high,
+        ),
+      );
 
-    _initialized = true;
+      _initialized = true;
+    } catch (e) {
+      debugPrint('Notification init failed (notifications off this run): $e');
+    }
   }
 
   AndroidFlutterLocalNotificationsPlugin? get _androidPlugin =>
@@ -180,6 +186,9 @@ class NotificationService {
           channelDescription: _channelDescription,
           importance: Importance.high,
           priority: Priority.high,
+          // Small icon defaults to the launcher icon (guaranteed present); the
+          // colourful app icon also shows in the notification body.
+          largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -242,6 +251,9 @@ class NotificationService {
           channelDescription: _channelDescription,
           importance: Importance.high,
           priority: Priority.high,
+          // Small icon defaults to the launcher icon (guaranteed present); the
+          // colourful app icon also shows in the notification body.
+          largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
