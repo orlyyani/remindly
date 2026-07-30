@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax_plus/iconsax_plus.dart';
 
 /// The kind of thing a reminder is about. Drives grouping and color coding.
 ///
@@ -42,14 +43,27 @@ enum ReminderCategory {
     }
   }
 
-  IconData get icon {
+  /// Default outline (linear) glyph, used when an item has no custom icon.
+  IconData get iconOutline {
     switch (this) {
       case ReminderCategory.car:
-        return Icons.directions_car_filled;
+        return IconsaxPlusLinear.car;
       case ReminderCategory.motorcycle:
-        return Icons.two_wheeler;
+        return IconsaxPlusLinear.speedometer;
       case ReminderCategory.personal:
-        return Icons.favorite;
+        return IconsaxPlusLinear.lovely;
+    }
+  }
+
+  /// Default bold (filled) glyph, used when an item has no custom icon.
+  IconData get iconBold {
+    switch (this) {
+      case ReminderCategory.car:
+        return IconsaxPlusBold.car;
+      case ReminderCategory.motorcycle:
+        return IconsaxPlusBold.speedometer;
+      case ReminderCategory.personal:
+        return IconsaxPlusBold.lovely;
     }
   }
 }

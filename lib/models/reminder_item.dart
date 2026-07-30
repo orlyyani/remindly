@@ -37,6 +37,7 @@ class ReminderItem extends HiveObject {
     this.escalateWhenOverdue = true,
     this.googleEventId,
     this.iconKey,
+    this.autoCompleteWhenDue = false,
   }) : completions = completions ?? <CompletionRecord>[];
 
   @HiveField(0)
@@ -114,6 +115,13 @@ class ReminderItem extends HiveObject {
   @HiveField(17)
   String? iconKey;
 
+  /// When true, once the due date passes the app auto-marks the item done and
+  /// rolls it to the next occurrence — useful for dates that happen on their
+  /// own (birthdays, anniversaries). Default OFF so actionable renewals keep
+  /// nudging until you act. defaultValue keeps upgrades reading old data safely.
+  @HiveField(18, defaultValue: false)
+  bool autoCompleteWhenDue;
+
   ReminderCategory get category => ReminderCategory.fromName(categoryName);
   set category(ReminderCategory value) => categoryName = value.name;
 
@@ -122,7 +130,18 @@ class ReminderItem extends HiveObject {
   set recurrenceType(RecurrenceType value) =>
       recurrenceTypeIndex = value.index;
 
-  /// The icon to display: the per-item [iconKey] if set, otherwise the
-  /// category's default icon.
-  IconData get icon => ReminderIcons.resolve(iconKey) ?? category.icon;
+  /// The outline (linear) glyph to display: the per-item [iconKey] if set,
+  /// otherwise the category's default.
+  IconData get iconOutline =>
+      ReminderIcons.outlineFor(iconKey) ?? category.iconOutline;
+
+  /// The bold (filled) glyph, layered under [iconOutline] for the two-tone look.
+  IconData get iconBold =>
+      ReminderIcons.boldFor(iconKey) ?? category.iconBold;
+
+  /// The colour used to tint the card and icon. Derived from the icon's
+  /// [IconFamily] when a per-item icon is set, otherwise falls back to the
+  /// category colour (so icon-less items keep their old look).
+  Color get displayColor =>
+      ReminderIcons.familyFor(iconKey)?.color ?? category.color;
 }

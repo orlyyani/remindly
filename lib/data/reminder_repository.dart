@@ -59,6 +59,7 @@ class ReminderRepository {
     bool escalateWhenOverdue = true,
     DateTime? lastCompletedDate,
     String? iconKey,
+    bool autoCompleteWhenDue = false,
   }) {
     final id = DateTime.now().microsecondsSinceEpoch.toString();
     return ReminderItem(
@@ -76,6 +77,7 @@ class ReminderRepository {
       isActive: isActive,
       escalateWhenOverdue: escalateWhenOverdue,
       lastCompletedDate: lastCompletedDate,
+      autoCompleteWhenDue: autoCompleteWhenDue,
       notificationBaseId: _settings.allocateNotificationBaseId(),
     );
   }
@@ -180,8 +182,50 @@ class ReminderRepository {
     await _reschedule(item);
   }
 
+  /// Removes a single completion log entry from an item's history. Purely a
+  /// record edit — it doesn't touch the item's schedule or next due date.
+  Future<void> deleteCompletion(
+      ReminderItem item, CompletionRecord record) async {
+    item.completions.remove(record);
+    await item.save();
+  }
+
+  /// Clears one item's entire completion history.
+  Future<void> clearCompletions(ReminderItem item) async {
+    if (item.completions.isEmpty) return;
+    item.completions.clear();
+    await item.save();
+  }
+
+  /// Clears the completion log across every item (the whole Done history).
+  Future<void> clearAllCompletions() async {
+    for (final item in _box.values) {
+      if (item.completions.isNotEmpty) {
+        item.completions.clear();
+        await item.save();
+      }
+    }
+  }
+
+  /// Auto-marks done any item that opted into [ReminderItem.autoCompleteWhenDue]
+  /// and whose due date has passed, rolling recurring ones forward on their
+  /// fixed schedule (birthdays/anniversaries). Actionable items leave the toggle
+  /// off, so they keep nudging when overdue. Runs on launch via [reconcileAll].
+  Future<void> processAutoCompletions({DateTime? now}) async {
+    final today = dateOnly(now ?? DateTime.now());
+    for (final item in _box.values.toList()) {
+      if (!item.autoCompleteWhenDue || !item.isActive) continue;
+      if (dateOnly(item.nextDueDate).isBefore(today)) {
+        // restartFromToday: false keeps the original calendar date (e.g. a
+        // birthday rolls to next year's same day, not today + interval).
+        await markDone(item, now: today, restartFromToday: false);
+      }
+    }
+  }
+
   /// Rebuilds the entire schedule from stored items. Call on app launch.
   Future<void> reconcileAll() async {
+    await processAutoCompletions();
     await _notifications.reconcile(
       _box.values.toList(),
       defaultHour: _settings.defaultHour,
