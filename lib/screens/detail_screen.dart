@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax_plus/iconsax_plus.dart';
 
 import '../data/app_settings.dart';
 import '../data/reminder_repository.dart';
+import '../models/completion_record.dart';
 import '../models/reminder_item.dart';
+import '../widgets/reminder_glyph.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
 import '../utils/date_math.dart';
@@ -48,6 +51,35 @@ class _DetailScreenState extends State<DetailScreen> {
     Navigator.of(context).pop();
   }
 
+  Future<void> _deleteCompletion(CompletionRecord record) async {
+    await widget.repository.deleteCompletion(item, record);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _clearHistory() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear this history?'),
+        content: Text('Delete every completion log for “${item.title}”? '
+            'The reminder and its schedule stay as they are.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: AppColors.late),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Clear')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await widget.repository.clearCompletions(item);
+      if (mounted) setState(() {});
+    }
+  }
+
   Future<void> _edit() async {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => AddEditScreen(
@@ -78,7 +110,7 @@ class _DetailScreenState extends State<DetailScreen> {
     final theme = Theme.of(context);
     final today = DateTime.now();
     final days = daysBetween(today, item.nextDueDate);
-    final color = item.category.color;
+    final color = item.displayColor;
     final tint = AppColors.softTint(color, theme.colorScheme.surface);
 
     final nextFromToday = item.recurrenceType.repeats
@@ -100,7 +132,7 @@ class _DetailScreenState extends State<DetailScreen> {
               child: CircleAvatar(
                 backgroundColor: theme.colorScheme.surface,
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(IconsaxPlusLinear.arrow_left_2),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
@@ -120,13 +152,26 @@ class _DetailScreenState extends State<DetailScreen> {
                   children: [
                     const SizedBox(height: 12),
                     Container(
-                      width: 74,
-                      height: 74,
+                      width: 84,
+                      height: 84,
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.surface,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            color.withValues(alpha: 0.28),
+                            color.withValues(alpha: 0.12),
+                          ],
+                        ),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(item.icon, color: color, size: 34),
+                      alignment: Alignment.center,
+                      child: ReminderGlyph(
+                        outline: item.iconOutline,
+                        bold: item.iconBold,
+                        color: color,
+                        size: 42,
+                      ),
                     ),
                     const SizedBox(height: 14),
                     Text(item.title,
@@ -197,11 +242,23 @@ class _DetailScreenState extends State<DetailScreen> {
                   ],
                   const SizedBox(height: 12),
                   if (item.completions.isNotEmpty) ...[
-                    Text('History',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 10),
-                    _HistoryCard(item: item),
+                    Row(
+                      children: [
+                        Text('History',
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700)),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: _clearHistory,
+                          icon: const Icon(IconsaxPlusLinear.trash, size: 18),
+                          label: const Text('Clear'),
+                          style: TextButton.styleFrom(
+                              foregroundColor: AppColors.late),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    _HistoryCard(item: item, onDelete: _deleteCompletion),
                     const SizedBox(height: 16),
                   ],
                   Text(
@@ -278,14 +335,38 @@ class _SnoozeButton extends StatelessWidget {
 }
 
 class _HistoryCard extends StatelessWidget {
-  const _HistoryCard({required this.item});
+  const _HistoryCard({required this.item, required this.onDelete});
   final ReminderItem item;
+  final ValueChanged<CompletionRecord> onDelete;
+
+  Future<bool> _confirm(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this log?'),
+        content: const Text(
+            'Remove this entry from the history? This won\'t change the '
+            'reminder itself.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: AppColors.late),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final entries = item.completions.reversed.toList();
     return Container(
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(20),
@@ -295,25 +376,36 @@ class _HistoryCard extends StatelessWidget {
         children: [
           for (var i = 0; i < entries.length; i++) ...[
             if (i > 0) Divider(height: 1, color: theme.dividerColor),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(formatMediumDate(entries[i].completedDate),
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text(
-                    entries[i].wasOnTime
-                        ? 'on time'
-                        : '${entries[i].daysLate} days late',
-                    style: TextStyle(
-                      color: entries[i].wasOnTime
-                          ? AppColors.onTime
-                          : AppColors.late,
-                      fontWeight: FontWeight.w700,
+            Dismissible(
+              key: ObjectKey(entries[i]),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                alignment: Alignment.centerRight,
+                color: AppColors.late.withValues(alpha: 0.15),
+                child: const Icon(IconsaxPlusLinear.trash, color: AppColors.late),
+              ),
+              confirmDismiss: (_) => _confirm(context),
+              onDismissed: (_) => onDelete(entries[i]),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(formatMediumDate(entries[i].completedDate),
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text(
+                      entries[i].wasOnTime
+                          ? 'on time'
+                          : '${entries[i].daysLate} days late',
+                      style: TextStyle(
+                        color: entries[i].wasOnTime
+                            ? AppColors.onTime
+                            : AppColors.late,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],

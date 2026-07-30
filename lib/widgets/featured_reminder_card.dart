@@ -4,6 +4,7 @@ import '../models/reminder_item.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
 import '../utils/date_math.dart';
+import 'reminder_glyph.dart';
 
 /// The prominent purple card at the top of the list for the most urgent item
 /// (overdue / due today): title, a plain-language status line, and quick
@@ -26,20 +27,15 @@ class FeaturedReminderCard extends StatelessWidget {
   final VoidCallback onSnooze;
   final bool showSnooze;
 
+  /// One clean line — when it's due. Category/schedule live on the detail screen.
   String _statusLine() {
     final days = daysBetween(today, item.nextDueDate);
-    final schedule = item.recurrenceType.repeats
-        ? ' ${item.recurrenceType.labelFor(item.recurrenceInterval)}.'
-        : '';
     if (days < 0) {
-      final n = -days;
-      return '${item.category.label} · was due ${formatShortDate(item.nextDueDate)} — '
-          '$n day${n == 1 ? '' : 's'} ago.$schedule';
+      return 'Overdue by ${untilPhrase(-days)} · was due ${formatShortDate(item.nextDueDate)}';
     }
-    if (days == 0) {
-      return '${item.category.label} · due today.$schedule';
-    }
-    return '${item.category.label} · due ${formatShortDate(item.nextDueDate)}.$schedule';
+    if (days == 0) return 'Due today';
+    if (days == 1) return 'Due tomorrow';
+    return 'Due in ${untilPhrase(days)} · ${formatShortDate(item.nextDueDate)}';
   }
 
   @override
@@ -87,7 +83,7 @@ class FeaturedReminderCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  _IconBadge(icon: item.icon),
+                  _IconBadge(item: item),
                 ],
               ),
               const SizedBox(height: 18),
@@ -129,19 +125,25 @@ class FeaturedReminderCard extends StatelessWidget {
 }
 
 class _IconBadge extends StatelessWidget {
-  const _IconBadge({required this.icon});
-  final IconData icon;
+  const _IconBadge({required this.item});
+  final ReminderItem item;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 58,
-      height: 58,
+      width: 62,
+      height: 62,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
+        color: Colors.white.withValues(alpha: 0.20),
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, color: Colors.white, size: 28),
+      alignment: Alignment.center,
+      child: ReminderGlyph(
+        outline: item.iconOutline,
+        bold: item.iconBold,
+        color: Colors.white,
+        size: 30,
+      ),
     );
   }
 }

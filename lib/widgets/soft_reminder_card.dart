@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../models/reminder_item.dart';
-import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
+import 'reminder_glyph.dart';
 import '../utils/date_math.dart';
-import '../utils/friendly_copy.dart';
 
-/// A soft pastel "Next up" card: title, a category · schedule line with a warm
-/// note, and a category icon in a circle. Tapping opens the detail screen.
+/// A soft pastel "Next up" card: title and one glanceable line (when it's due),
+/// with the reminder's icon in a tinted circle. Tapping opens the detail screen,
+/// where the full schedule / nudge plan lives.
 class SoftReminderCard extends StatelessWidget {
   const SoftReminderCard({
     super.key,
@@ -20,50 +20,39 @@ class SoftReminderCard extends StatelessWidget {
   final DateTime today;
   final VoidCallback onTap;
 
+  /// One short, glanceable line — just when it's due. Everything else (category,
+  /// schedule, nudge plan) lives on the detail screen.
   String _subtitle() {
     final days = daysBetween(today, item.nextDueDate);
-    final color = item.category;
-    final schedule = item.recurrenceType.repeats
-        ? item.recurrenceType.labelFor(item.recurrenceInterval)
-        : 'One-time';
-
-    // First nudge (largest lead) preview for future items.
-    final maxLead = item.leadTimes.isEmpty
-        ? 0
-        : item.leadTimes.reduce((a, b) => a > b ? a : b);
-    final firstNudge = dateOnly(item.nextDueDate).subtract(Duration(days: maxLead));
-
-    if (days < 0) {
-      return '${color.label} · was due ${formatShortDate(item.nextDueDate)}. ${FriendlyCopy.line(item, today: today)}';
-    }
-    if (item.recurrenceType.name == 'everyNYears') {
-      return '$schedule · ${formatShortDate(item.nextDueDate)}. First nudge ${formatShortDate(firstNudge)}.';
-    }
-    if (days <= 14) {
-      return '${color.label} · in $days days, ${formatShortDate(item.nextDueDate)}. ${FriendlyCopy.line(item, today: today)}';
-    }
-    return '${color.label} · $schedule · ${formatShortDate(item.nextDueDate)}.';
+    if (days < 0) return 'Overdue by ${untilPhrase(-days)}';
+    if (days == 0) return 'Due today';
+    if (days == 1) return 'Due tomorrow';
+    return 'in ${untilPhrase(days)} · ${formatShortDate(item.nextDueDate)}';
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = item.category.color;
-    final tint = AppColors.softTint(color, theme.colorScheme.surface);
+    final color = item.displayColor;
+    // A much softer, near-surface tint so the card reads light and airy like
+    // the reference, with the emoji carrying the colour.
+    final tint = Color.alphaBlend(
+        color.withValues(alpha: 0.07), theme.colorScheme.surface);
 
     return Material(
       color: tint,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(28),
       clipBehavior: Clip.antiAlias,
       elevation: 5,
-      shadowColor: color.withValues(alpha: 0.28),
+      shadowColor: color.withValues(alpha: 0.22),
       child: InkWell(
         onTap: onTap,
         child: Opacity(
           opacity: item.isActive ? 1 : 0.55,
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(24, 22, 20, 22),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Column(
@@ -71,8 +60,10 @@ class SoftReminderCard extends StatelessWidget {
                     children: [
                       Text(
                         item.title,
-                        style: theme.textTheme.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 22,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -81,27 +72,58 @@ class SoftReminderCard extends StatelessWidget {
                         _subtitle(),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.6),
-                          height: 1.3,
+                              .withValues(alpha: 0.55),
+                          fontWeight: FontWeight.w500,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 14),
-                Container(
-                  width: 54,
-                  height: 54,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface.withValues(alpha: 0.8),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(item.icon, color: color, size: 26),
-                ),
+                const SizedBox(width: 16),
+                _EmojiIllustration(item: item, color: color),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The big rounded emoji illustration on the right of a card — a soft tinted
+/// blob (in the item's family colour) with the emoji floating on it, echoing
+/// the 3D-illustration look of the reference.
+class _EmojiIllustration extends StatelessWidget {
+  const _EmojiIllustration({required this.item, required this.color});
+
+  final ReminderItem item;
+  final Color color;
+  static const double size = 68;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: 0.22),
+            color.withValues(alpha: 0.10),
+          ],
+        ),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: ReminderGlyph(
+        outline: item.iconOutline,
+        bold: item.iconBold,
+        color: color,
+        size: size * 0.46,
       ),
     );
   }

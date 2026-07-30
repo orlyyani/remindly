@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax_plus/iconsax_plus.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../data/app_settings.dart';
@@ -6,6 +7,7 @@ import '../data/reminder_repository.dart';
 import '../models/reminder_category.dart';
 import '../models/reminder_item.dart';
 import '../theme/app_theme.dart';
+import '../utils/date_format.dart';
 import '../utils/date_math.dart';
 import '../widgets/alarm_clock.dart';
 import '../widgets/featured_reminder_card.dart';
@@ -61,12 +63,12 @@ class UpcomingScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.snooze),
+              leading: const Icon(IconsaxPlusLinear.clock),
               title: const Text('Snooze 3 days'),
               onTap: () => Navigator.pop(context, 3),
             ),
             ListTile(
-              leading: const Icon(Icons.snooze),
+              leading: const Icon(IconsaxPlusLinear.clock),
               title: const Text('Snooze 1 week'),
               onTap: () => Navigator.pop(context, 7),
             ),
@@ -75,6 +77,59 @@ class UpcomingScreen extends StatelessWidget {
       ),
     );
     if (days != null) await repository.snooze(item, days);
+  }
+
+  /// Quick mark-done: for recurring items, ask whether the next date should
+  /// move to today or keep the original schedule; one-time items just complete.
+  Future<void> _markDonePrompt(BuildContext context, ReminderItem item) async {
+    if (!item.recurrenceType.repeats) {
+      await repository.markDone(item);
+      return;
+    }
+    final today = dateOnly(DateTime.now());
+    final fromToday = nextOccurrenceAfter(
+        today, item.recurrenceType, item.recurrenceInterval,
+        reference: today);
+    final keepSchedule = nextOccurrenceAfter(
+        item.nextDueDate, item.recurrenceType, item.recurrenceInterval,
+        reference: today);
+
+    final restartFromToday = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+              child: Text('Mark “${item.title}” done',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700)),
+            ),
+            ListTile(
+              leading: const Icon(IconsaxPlusLinear.calendar_tick),
+              title: const Text('Move next date to today'),
+              subtitle: Text('Next due ${formatShortDate(fromToday)}'),
+              onTap: () => Navigator.pop(context, true),
+            ),
+            ListTile(
+              leading: const Icon(IconsaxPlusLinear.repeat),
+              title: const Text('Keep original schedule'),
+              subtitle: Text('Next due ${formatShortDate(keepSchedule)}'),
+              onTap: () => Navigator.pop(context, false),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (restartFromToday != null) {
+      await repository.markDone(item, restartFromToday: restartFromToday);
+    }
   }
 
   String _featuredLabel(int days) {
@@ -144,7 +199,7 @@ class UpcomingScreen extends StatelessWidget {
                         today: today,
                         showSnooze: firstDays <= 0,
                         onTap: () => _openDetail(context, featured),
-                        onMarkDone: () => repository.markDone(featured),
+                        onMarkDone: () => _markDonePrompt(context, featured),
                         onSnooze: () => _snoozePrompt(context, featured),
                       ),
                       const SizedBox(height: 22),

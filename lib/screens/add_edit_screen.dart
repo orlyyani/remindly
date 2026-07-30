@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax_plus/iconsax_plus.dart';
 
 import '../data/app_settings.dart';
 import '../data/reminder_repository.dart';
@@ -6,6 +7,7 @@ import '../models/recurrence_type.dart';
 import '../models/reminder_category.dart';
 import '../models/reminder_icon.dart';
 import '../models/reminder_item.dart';
+import '../widgets/reminder_glyph.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
 import '../utils/date_math.dart';
@@ -53,6 +55,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
   late DateTime _fixedDate; // for yearly / one-time
   late Set<int> _leadDays;
   late bool _escalate;
+  late bool _autoComplete;
 
   static const _leadOptions = [7, 14, 30];
 
@@ -75,6 +78,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       _fixedDate = today.add(const Duration(days: 30));
       _leadDays = {widget.settings.defaultLeadDays};
       _escalate = true;
+      _autoComplete = false;
     } else {
       switch (e.recurrenceType) {
         case RecurrenceType.none:
@@ -93,6 +97,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       _fixedDate = e.nextDueDate;
       _leadDays = e.leadTimes.toSet();
       _escalate = e.escalateWhenOverdue;
+      _autoComplete = e.autoCompleteWhenDue;
     }
   }
 
@@ -199,6 +204,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
       item.recurrenceInterval = interval;
       item.leadTimes = leads;
       item.escalateWhenOverdue = _escalate;
+      item.autoCompleteWhenDue = _autoComplete;
       item.lastCompletedDate = _mode == _RepeatMode.monthly ? _lastDone : null;
       await widget.repository.save(item);
     } else {
@@ -211,6 +217,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
         recurrenceInterval: interval,
         leadTimes: leads,
         escalateWhenOverdue: _escalate,
+        autoCompleteWhenDue: _autoComplete,
         lastCompletedDate: _mode == _RepeatMode.monthly ? _lastDone : null,
       );
       await widget.repository.save(item);
@@ -341,8 +348,24 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       value: _escalate,
-                      onChanged: (v) => setState(() => _escalate = v),
+                      onChanged:
+                          _autoComplete ? null : (v) => setState(() => _escalate = v),
                       title: const Text('Keep nudging daily once overdue'),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _autoComplete,
+                      onChanged: (v) => setState(() {
+                        _autoComplete = v;
+                        // Auto-complete and overdue-nudging are mutually
+                        // exclusive: if it completes itself, it never goes
+                        // overdue to nudge about.
+                        if (v) _escalate = false;
+                      }),
+                      title: const Text('Auto-complete when the date passes'),
+                      subtitle: const Text(
+                          'For dates that happen on their own — birthdays, '
+                          'anniversaries. Rolls to the next one automatically.'),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -377,13 +400,15 @@ class _AddEditScreenState extends State<AddEditScreen> {
     );
   }
 
-  /// The icon shown right now: the chosen one, or the category default.
-  IconData get _effectiveIcon =>
-      ReminderIcons.resolve(_iconKey) ?? _category.icon;
+  /// The glyph shown right now: the chosen icon's, or the category default.
+  IconData get _effectiveOutline =>
+      ReminderIcons.outlineFor(_iconKey) ?? _category.iconOutline;
+  IconData get _effectiveBold =>
+      ReminderIcons.boldFor(_iconKey) ?? _category.iconBold;
 
   Widget _iconPickerRow() {
     final theme = Theme.of(context);
-    final color = _category.color;
+    final color = ReminderIcons.familyFor(_iconKey)?.color ?? _category.color;
     return Material(
       color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
       borderRadius: BorderRadius.circular(18),
@@ -397,11 +422,16 @@ class _AddEditScreenState extends State<AddEditScreen> {
               Container(
                 width: 48,
                 height: 48,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(_effectiveIcon, color: color),
+                child: ReminderGlyph(
+                    outline: _effectiveOutline,
+                    bold: _effectiveBold,
+                    color: color,
+                    size: 26),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -418,7 +448,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                   onPressed: () => setState(() => _iconKey = null),
                   child: const Text('Reset'),
                 ),
-              Icon(Icons.chevron_right,
+              Icon(IconsaxPlusLinear.arrow_right_2,
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
             ],
           ),
@@ -454,10 +484,11 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     children: [
                       for (final ic in ReminderIcons.catalog)
                         _IconGridTile(
-                          icon: ic.icon,
+                          outline: ic.outline,
+                          bold: ic.bold,
                           label: ic.label,
                           selected: ic.key == _iconKey,
-                          color: _category.color,
+                          color: ic.family.color,
                           onTap: () => Navigator.pop(context, ic.key),
                         ),
                     ],
@@ -554,7 +585,7 @@ class _Header extends StatelessWidget {
                 child: CircleAvatar(
                   backgroundColor: theme.colorScheme.surface,
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(IconsaxPlusLinear.arrow_left_2),
                     onPressed: onBack,
                   ),
                 ),
@@ -571,7 +602,7 @@ class _Header extends StatelessWidget {
                   child: CircleAvatar(
                     backgroundColor: theme.colorScheme.surface,
                     child: IconButton(
-                      icon: Icon(Icons.delete_outline,
+                      icon: Icon(IconsaxPlusLinear.trash,
                           color: theme.colorScheme.error),
                       onPressed: onDelete,
                     ),
@@ -631,14 +662,16 @@ class _ChoicePill extends StatelessWidget {
 
 class _IconGridTile extends StatelessWidget {
   const _IconGridTile({
-    required this.icon,
+    required this.outline,
+    required this.bold,
     required this.label,
     required this.selected,
     required this.color,
     required this.onTap,
   });
 
-  final IconData icon;
+  final IconData outline;
+  final IconData bold;
   final String label;
   final bool selected;
   final Color color;
@@ -658,6 +691,7 @@ class _IconGridTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: Container(
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
@@ -665,11 +699,13 @@ class _IconGridTile extends StatelessWidget {
                 width: 2,
               ),
             ),
-            child: Icon(
-              icon,
+            child: ReminderGlyph(
+              outline: outline,
+              bold: bold,
               color: selected
                   ? color
                   : theme.colorScheme.onSurface.withValues(alpha: 0.75),
+              size: 26,
             ),
           ),
         ),

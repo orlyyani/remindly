@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax_plus/iconsax_plus.dart';
 
 import '../data/app_settings.dart';
 import '../data/backup_service.dart';
@@ -111,23 +112,27 @@ class _BottomBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _NavIcon(
-                icon: Icons.grid_view_rounded,
+                icon: IconsaxPlusLinear.home,
+                activeIcon: IconsaxPlusBold.home,
                 active: current == 0,
                 onTap: () => onSelect(0),
               ),
               _NavIcon(
-                icon: Icons.calendar_today_rounded,
+                icon: IconsaxPlusLinear.calendar,
+                activeIcon: IconsaxPlusBold.calendar,
                 active: current == 1,
                 onTap: () => onSelect(1),
               ),
               _AddButton(onTap: onAdd),
               _NavIcon(
-                icon: Icons.check_rounded,
+                icon: IconsaxPlusLinear.chart_2,
+                activeIcon: IconsaxPlusBold.chart_2,
                 active: current == 2,
                 onTap: () => onSelect(2),
               ),
               _NavIcon(
-                icon: Icons.settings_rounded,
+                icon: IconsaxPlusLinear.user,
+                activeIcon: IconsaxPlusBold.user,
                 active: current == 3,
                 onTap: () => onSelect(3),
               ),
@@ -141,8 +146,12 @@ class _BottomBar extends StatelessWidget {
 
 class _NavIcon extends StatelessWidget {
   const _NavIcon(
-      {required this.icon, required this.active, required this.onTap});
+      {required this.icon,
+      required this.activeIcon,
+      required this.active,
+      required this.onTap});
   final IconData icon;
+  final IconData activeIcon;
   final bool active;
   final VoidCallback onTap;
 
@@ -152,7 +161,7 @@ class _NavIcon extends StatelessWidget {
     return IconButton(
       onPressed: onTap,
       icon: Icon(
-        icon,
+        active ? activeIcon : icon,
         color: active
             ? AppColors.purple
             : theme.colorScheme.onSurface.withValues(alpha: 0.35),
@@ -184,7 +193,7 @@ class _AddButton extends StatelessWidget {
             ),
           ],
         ),
-        child: const Icon(Icons.add, color: Colors.white, size: 30),
+        child: const Icon(IconsaxPlusLinear.add, color: Colors.white, size: 30),
       ),
     );
   }
