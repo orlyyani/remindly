@@ -64,8 +64,10 @@ flutter test test/utils/date_math_test.dart         # run a single test file
 flutter build apk --release       # sideloadable APK
 dart run build_runner build --delete-conflicting-outputs   # regen Hive adapters
 
-# Build with Google Calendar sync enabled (Web OAuth client id):
-flutter build apk --release --dart-define=GOOGLE_SERVER_CLIENT_ID=<web-client-id>.apps.googleusercontent.com
+# Build with Google Calendar sync enabled: the Web OAuth client id lives in a
+# gitignored dart_defines.json (copy dart_defines.example.json). Always pass it
+# so a plain build doesn't silently disable sync ("Not set up on this build yet").
+flutter build apk --release --dart-define-from-file=dart_defines.json
 ```
 
 The date/recurrence math (`lib/utils/date_math.dart`) is the "brain" — unit-tested

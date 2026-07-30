@@ -39,18 +39,36 @@ reminders, so you won't get double-nudged.
 
 ## Build with the Web client ID
 
-Pass the **Web** client ID as a dart-define (kept out of source):
+The client ID lives in a **gitignored** `dart_defines.json` at the repo root, so
+every build picks it up automatically and you can't forget the flag. Create it
+once by copying the template:
 
 ```bash
-flutter build apk --release \
-  --dart-define=GOOGLE_SERVER_CLIENT_ID=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com
-
-# or while developing:
-flutter run --dart-define=GOOGLE_SERVER_CLIENT_ID=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com
+cp dart_defines.example.json dart_defines.json
+# then edit dart_defines.json and paste your Web client ID
 ```
 
-Without this define, `GoogleCalendarService.isConfigured` is false and Settings
-shows "Not set up on this build yet" — the rest of the app works normally.
+`dart_defines.json`:
+
+```json
+{
+  "GOOGLE_SERVER_CLIENT_ID": "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
+}
+```
+
+Then always build/run with `--dart-define-from-file`:
+
+```bash
+flutter build apk --release --dart-define-from-file=dart_defines.json
+
+# or while developing:
+flutter run --dart-define-from-file=dart_defines.json
+```
+
+Without this (a plain `flutter build apk --release`),
+`GoogleCalendarService.isConfigured` is false and Settings shows **"Not set up on
+this build yet"** — the rest of the app works normally. This is the #1 way sync
+silently "breaks": rebuilding without the define. Prefer the file so it's baked in.
 
 ## Use it
 

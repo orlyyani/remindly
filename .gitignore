@@ -8,6 +8,10 @@ build/
 .flutter-plugins-dependencies
 # pubspec.lock IS committed for apps (pins exact dependency versions).
 
+# Secrets / build config (keep the OAuth Web client id out of source).
+# Real values live in dart_defines.json; commit dart_defines.example.json only.
+dart_defines.json
+
 # IDE / tooling
 .idea/
 .vscode/
