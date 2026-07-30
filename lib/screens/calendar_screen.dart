@@ -73,6 +73,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
           final selectedItems = [...?dueByDay[_selected]]
             ..sort((a, b) => _minutesOf(a).compareTo(_minutesOf(b)));
 
+          // Nothing on the selected day → fall back to the soonest few that are
+          // still ahead, so the screen stays useful instead of just empty.
+          final upcoming = selectedItems.isNotEmpty
+              ? const <ReminderItem>[]
+              : items
+                  .where((i) =>
+                      i.isActive &&
+                      dateOnly(i.nextDueDate).isAfter(_selected))
+                  .take(6)
+                  .toList();
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -83,16 +94,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
-                  _isToday(_selected) ? 'Today' : formatMediumDate(_selected),
+                  selectedItems.isEmpty
+                      ? (upcoming.isEmpty
+                          ? (_isToday(_selected) ? 'Today' : formatMediumDate(_selected))
+                          : 'Coming up')
+                      : (_isToday(_selected) ? 'Today' : formatMediumDate(_selected)),
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
               const SizedBox(height: 8),
               Expanded(
-                child: selectedItems.isEmpty
-                    ? _emptyDay(theme)
-                    : _timeline(theme, selectedItems),
+                child: selectedItems.isNotEmpty
+                    ? _timeline(theme, selectedItems)
+                    : (upcoming.isEmpty
+                        ? _emptyDay(theme)
+                        : _upcomingList(theme, upcoming)),
               ),
             ],
           );
@@ -279,6 +296,101 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
+  void _openDetail(ReminderItem item) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => DetailScreen(
+        repository: widget.repository,
+        settings: widget.settings,
+        item: item,
+      ),
+    ));
+  }
+
+  /// Shown when the selected day has nothing: a short note plus the soonest few
+  /// reminders (each with its own date), so the calendar still tells you what's
+  /// next instead of just being empty.
+  Widget _upcomingList(ThemeData theme, List<ReminderItem> upcoming) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Text(
+            _isToday(_selected)
+                ? 'Nothing today — here\'s what\'s next.'
+                : 'Nothing this day — here\'s what\'s next.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+          ),
+        ),
+        for (final item in upcoming) ...[
+          _upcomingRow(theme, item),
+          const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+
+  Widget _upcomingRow(ThemeData theme, ReminderItem item) {
+    final color = item.displayColor;
+    final days = daysBetween(DateTime.now(), item.nextDueDate);
+    final due = days <= 0
+        ? 'Due today'
+        : days == 1
+            ? 'Due tomorrow'
+            : 'in ${untilPhrase(days)} · ${formatShortDate(item.nextDueDate)}';
+    return Material(
+      color: Color.alphaBlend(
+          color.withValues(alpha: 0.08), theme.colorScheme.surface),
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        // Jump the calendar to this event's date; its timeline (where a tap
+        // opens the detail) then shows it in context.
+        onTap: () => _select(item.nextDueDate),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: ReminderGlyph(
+                    outline: item.iconOutline,
+                    bold: item.iconBold,
+                    color: color,
+                    size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 16)),
+                    const SizedBox(height: 2),
+                    Text(due,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.55))),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _timeline(ThemeData theme, List<ReminderItem> dayItems) {
     final showNow = _isToday(_selected);
     final nowMinutes = TimeOfDay.now().hour * 60 + TimeOfDay.now().minute;
@@ -306,13 +418,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         isFirst: i == 0,
         isLast: i == dayItems.length - 1,
         today: DateTime.now(),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => DetailScreen(
-            repository: widget.repository,
-            settings: widget.settings,
-            item: item,
-          ),
-        )),
+        onTap: () => _openDetail(item),
       ));
     }
     if (showNow && nowIndex == dayItems.length) {
