@@ -54,16 +54,20 @@ ThemeData buildAppTheme(Brightness brightness) {
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
+    // Poppins app-wide (bundled asset). ThemeData.fontFamily is also applied to
+    // the textTheme below and inherited by inline TextStyles via DefaultTextStyle.
+    fontFamily: 'Poppins',
     scaffoldBackgroundColor: bg,
     textTheme: Typography.material2021(platform: TargetPlatform.android)
         .black
-        .apply(bodyColor: ink, displayColor: ink),
+        .apply(bodyColor: ink, displayColor: ink, fontFamily: 'Poppins'),
     appBarTheme: AppBarTheme(
       backgroundColor: bg,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       centerTitle: true,
       titleTextStyle: TextStyle(
+        fontFamily: 'Poppins',
         color: ink,
         fontSize: 20,
         fontWeight: FontWeight.w700,

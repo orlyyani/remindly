@@ -45,6 +45,7 @@ dependencies:
   google_sign_in: ^7.2.0
   googleapis: ^16.0.0
   extension_google_sign_in_as_googleapis_auth: ^3.0.0
+  iconsax_plus: ^1.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -73,6 +74,20 @@ flutter:
 
   assets:
     - assets/icon/logo_transparent.png
+
+  # Poppins — bundled (not fetched at runtime) so the app stays fully offline.
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Poppins-ExtraBold.ttf
+          weight: 800
 
   # To add assets to your application, add an assets section, like this:
   # assets:
