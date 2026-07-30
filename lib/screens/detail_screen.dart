@@ -5,6 +5,7 @@ import '../data/app_settings.dart';
 import '../data/reminder_repository.dart';
 import '../models/completion_record.dart';
 import '../models/reminder_item.dart';
+import '../widgets/mark_done_sheet.dart';
 import '../widgets/reminder_glyph.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
@@ -40,6 +41,19 @@ class _DetailScreenState extends State<DetailScreen> {
       SnackBar(content: Text('“${item.title}” marked done')),
     );
     Navigator.of(context).pop();
+  }
+
+  /// Mark done from the detail page. Recurring items get the same chooser as
+  /// the quick action (keep-schedule is the default); one-time items complete.
+  Future<void> _markDonePressed() async {
+    if (!item.recurrenceType.repeats) {
+      await _markDone(restartFromToday: false);
+      return;
+    }
+    final restartFromToday = await showMarkDoneChooser(context, item);
+    if (restartFromToday != null) {
+      await _markDone(restartFromToday: restartFromToday);
+    }
   }
 
   Future<void> _snooze(int days) async {
@@ -112,12 +126,6 @@ class _DetailScreenState extends State<DetailScreen> {
     final days = daysBetween(today, item.nextDueDate);
     final color = item.displayColor;
     final tint = AppColors.softTint(color, theme.colorScheme.surface);
-
-    final nextFromToday = item.recurrenceType.repeats
-        ? nextOccurrenceAfter(today, item.recurrenceType,
-            item.recurrenceInterval,
-            reference: today)
-        : null;
 
     return Scaffold(
       body: CustomScrollView(
@@ -201,7 +209,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: () => _markDone(restartFromToday: true),
+                      onPressed: _markDonePressed,
                       child: const Text('Mark done  →'),
                     ),
                   ),
@@ -220,26 +228,15 @@ class _DetailScreenState extends State<DetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  if (nextFromToday != null) ...[
+                  if (item.recurrenceType.repeats)
                     Text(
-                      'Mark done restarts the cycle from today → next due '
-                      '${formatShortDate(nextFromToday)}.',
+                      'Marking done asks whether to keep the original schedule '
+                      '(default) or move the next date to today.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurface
                               .withValues(alpha: 0.6),
                           height: 1.4),
                     ),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton(
-                        onPressed: () => _markDone(restartFromToday: false),
-                        style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            foregroundColor: AppColors.purple),
-                        child: const Text('Keep original schedule instead'),
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 12),
                   if (item.completions.isNotEmpty) ...[
                     Row(

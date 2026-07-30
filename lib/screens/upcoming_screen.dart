@@ -7,10 +7,10 @@ import '../data/reminder_repository.dart';
 import '../models/reminder_category.dart';
 import '../models/reminder_item.dart';
 import '../theme/app_theme.dart';
-import '../utils/date_format.dart';
 import '../utils/date_math.dart';
 import '../widgets/alarm_clock.dart';
 import '../widgets/featured_reminder_card.dart';
+import '../widgets/mark_done_sheet.dart';
 import '../widgets/soft_reminder_card.dart';
 import 'add_edit_screen.dart';
 import 'detail_screen.dart';
@@ -79,54 +79,15 @@ class UpcomingScreen extends StatelessWidget {
     if (days != null) await repository.snooze(item, days);
   }
 
-  /// Quick mark-done: for recurring items, ask whether the next date should
-  /// move to today or keep the original schedule; one-time items just complete.
+  /// Quick mark-done: for recurring items, ask whether to keep the original
+  /// schedule (default) or move the next date to today; one-time items just
+  /// complete.
   Future<void> _markDonePrompt(BuildContext context, ReminderItem item) async {
     if (!item.recurrenceType.repeats) {
       await repository.markDone(item);
       return;
     }
-    final today = dateOnly(DateTime.now());
-    final fromToday = nextOccurrenceAfter(
-        today, item.recurrenceType, item.recurrenceInterval,
-        reference: today);
-    final keepSchedule = nextOccurrenceAfter(
-        item.nextDueDate, item.recurrenceType, item.recurrenceInterval,
-        reference: today);
-
-    final restartFromToday = await showModalBottomSheet<bool>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-              child: Text('Mark “${item.title}” done',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)),
-            ),
-            ListTile(
-              leading: const Icon(IconsaxPlusLinear.calendar_tick),
-              title: const Text('Move next date to today'),
-              subtitle: Text('Next due ${formatShortDate(fromToday)}'),
-              onTap: () => Navigator.pop(context, true),
-            ),
-            ListTile(
-              leading: const Icon(IconsaxPlusLinear.repeat),
-              title: const Text('Keep original schedule'),
-              subtitle: Text('Next due ${formatShortDate(keepSchedule)}'),
-              onTap: () => Navigator.pop(context, false),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
+    final restartFromToday = await showMarkDoneChooser(context, item);
     if (restartFromToday != null) {
       await repository.markDone(item, restartFromToday: restartFromToday);
     }
